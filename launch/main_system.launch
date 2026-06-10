@@ -1,0 +1,53 @@
+<launch>
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="x_pos" default="0.0"/>
+  <arg name="y_pos" default="0.5"/>
+  <arg name="z_pos" default="0.05"/>
+  <arg name="yaw_pos" default="0.0"/>
+
+<include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="worlds/empty.world"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+  
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" 
+        args="-urdf -model turtlebot3_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -Y $(arg yaw_pos) -param robot_description" />
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="50.0" />
+  </node>
+
+  <node pkg="map_server" type="map_server" name="map_server" args="$(find autonomous_trash_collector)/maps/mapa_basura_3.yaml" />
+<!--
+  <include file="$(find turtlebot3_navigation)/launch/amcl.launch">
+    <arg name="initial_pose_x" value="$(arg x_pos)"/>
+    <arg name="initial_pose_y" value="$(arg y_pos)"/>
+    <arg name="initial_pose_a" value="$(arg yaw_pos)"/>
+  </include>
+-->
+  <node pkg="tf" type="static_transform_publisher" name="map_odom_broadcaster" 
+        args="$(arg x_pos) $(arg y_pos) 0 0 0 0 map odom 50" />
+
+  <include file="$(find turtlebot3_navigation)/launch/move_base.launch">
+    <arg name="model" value="$(arg model)" />
+  </include>
+
+  <rosparam param="/move_base/global_costmap/inflation_radius">0.25</rosparam>
+  <rosparam param="/move_base/local_costmap/inflation_radius">0.25</rosparam>
+  <rosparam param="/move_base/global_costmap/inflation_layer/inflation_radius">0.25</rosparam>
+  <rosparam param="/move_base/local_costmap/inflation_layer/inflation_radius">0.25</rosparam>
+
+  <node pkg="rviz" type="rviz" name="rviz" required="true" 
+        args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+
+  <node pkg="autonomous_trash_collector" type="state_machine_node.py" name="state_machine_node" output="screen" />
+  <node pkg="autonomous_trash_collector" type="patrol_planner.py" name="patrol_planner" output="screen" />
+  <node pkg="autonomous_trash_collector" type="object_map_mgr.py" name="object_map_mgr" output="screen" />
+
+</launch>
