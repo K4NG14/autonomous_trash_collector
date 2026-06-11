@@ -1,50 +1,63 @@
 <launch>
+  <arg name="sim" default="false" doc="true per a simulació en Gazebo, false per al robot real"/>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-  <arg name="x_pos" default="0.0"/>
-  <arg name="y_pos" default="0.5"/>
-  <arg name="z_pos" default="0.05"/>
-  <arg name="yaw_pos" default="0.0"/>
+  <arg name="open_rviz" default="true"/>
 
-<include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="worlds/empty.world"/>
-    <arg name="paused" value="false"/>
-    <arg name="use_sim_time" value="true"/>
-    <arg name="gui" value="true"/>
-    <arg name="headless" value="false"/>
-    <arg name="debug" value="false"/>
+  <param name="/use_sim_time" value="$(arg sim)"/>
+
+  <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+    <arg name="model" value="$(arg model)" />
   </include>
-
-  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
-  
-  <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" 
-        args="-urdf -model turtlebot3_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -Y $(arg yaw_pos) -param robot_description" />
-
-  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
-    <param name="publish_frequency" type="double" value="50.0" />
-  </node>
 
   <node pkg="map_server" type="map_server" name="map_server" args="$(find autonomous_trash_collector)/maps/mapa_basura_3.yaml" />
-<!--
-  <include file="$(find turtlebot3_navigation)/launch/amcl.launch">
-    <arg name="initial_pose_x" value="$(arg x_pos)"/>
-    <arg name="initial_pose_y" value="$(arg y_pos)"/>
-    <arg name="initial_pose_a" value="$(arg yaw_pos)"/>
+
+
+  <include unless="$(arg sim)" file="$(find turtlebot3_navigation)/launch/amcl.launch">
+    <arg name="initial_pose_x" value="0.0"/>
+    <arg name="initial_pose_y" value="0.0"/>
+    <arg name="initial_pose_a" value="0.0"/>
   </include>
--->
-  <node pkg="tf" type="static_transform_publisher" name="map_odom_broadcaster" 
-        args="$(arg x_pos) $(arg y_pos) 0 0 0 0 map odom 50" />
+
+  <node if="$(arg sim)" pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom" args="0 0 0 0 0 0 map odom" />
+ 
 
   <include file="$(find turtlebot3_navigation)/launch/move_base.launch">
     <arg name="model" value="$(arg model)" />
   </include>
-
+  
+  <include if="$(arg sim)" file="$(find turtlebot3_manipulation_gazebo)/launch/turtlebot3_manipulation_gazebo.launch"/>
   <rosparam param="/move_base/global_costmap/inflation_radius">0.25</rosparam>
   <rosparam param="/move_base/local_costmap/inflation_radius">0.25</rosparam>
   <rosparam param="/move_base/global_costmap/inflation_layer/inflation_radius">0.25</rosparam>
   <rosparam param="/move_base/local_costmap/inflation_layer/inflation_radius">0.25</rosparam>
 
-  <node pkg="rviz" type="rviz" name="rviz" required="true" 
-        args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+  <rosparam param="/move_base/DWAPlannerROS/path_distance_bias">10.0</rosparam>
+  <rosparam param="/move_base/DWAPlannerROS/occdist_scale">0.5</rosparam>
+  <rosparam param="/move_base/DWAPlannerROS/max_vel_y">0.0</rosparam>
+
+
+  <group if="$(arg sim)">
+    <rosparam param="/move_base/global_costmap/observation_sources">scan</rosparam>
+    <rosparam param="/move_base/local_costmap/observation_sources">scan</rosparam>
+  </group>
+
+  <group unless="$(arg sim)">
+    <rosparam param="/move_base/global_costmap/observation_sources">point_cloud_sensor</rosparam>
+    <rosparam param="/move_base/global_costmap/point_cloud_sensor/data_type">PointCloud2</rosparam>
+    <rosparam param="/move_base/global_costmap/point_cloud_sensor/topic">/camera/depth/points</rosparam> <rosparam param="/move_base/global_costmap/point_cloud_sensor/marking">true</rosparam>
+    <rosparam param="/move_base/global_costmap/point_cloud_sensor/clearing">true</rosparam>
+
+    <rosparam param="/move_base/local_costmap/observation_sources">point_cloud_sensor</rosparam>
+    <rosparam param="/move_base/local_costmap/point_cloud_sensor/data_type">PointCloud2</rosparam>
+    <rosparam param="/move_base/local_costmap/point_cloud_sensor/topic">/camera/depth/points</rosparam>
+    <rosparam param="/move_base/local_costmap/point_cloud_sensor/marking">true</rosparam>
+    <rosparam param="/move_base/local_costmap/point_cloud_sensor/clearing">true</rosparam>
+  </group>
+
+
+  <include file="$(find turtlebot3_manipulation_moveit_config)/launch/move_group.launch"/>
+
+  <node if="$(arg open_rviz)" pkg="rviz" type="rviz" name="rviz" required="true" args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
 
   <node pkg="autonomous_trash_collector" type="state_machine_node.py" name="state_machine_node" output="screen" />
   <node pkg="autonomous_trash_collector" type="patrol_planner.py" name="patrol_planner" output="screen" />
