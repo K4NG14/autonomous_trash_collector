@@ -1,0 +1,39 @@
+# Posicions (frame "map") de cada contenidor de reciclatge.
+#
+# Claus possibles (han de coincidir amb els valors que publica
+# yolo_node a /detected_container, veure COCO_CLASS_TO_CONTAINER):
+#   plastic, paper, glass, residual
+#
+# Com obtenir x, y, yaw d'un contenidor:
+#   1. Porta/condueix el robot fins davant del contenidor, ben orientat
+#      cap a ell (amb teleop, per exemple).
+#   2. Amb el sistema localitzat (AMCL), executa:
+#        rostopic echo /amcl_pose -n 1
+#      Agafa pose.pose.pose.position.x / .y per a x / y.
+#   3. Per a yaw, pots deixar 0.0 (move_base igualment hi arribarà,
+#      només canvia l'orientació final del robot al arribar) o calcular-lo
+#      a partir del quaternion (pose.pose.pose.orientation) amb:
+#        from tf.transformations import euler_from_quaternion
+#        yaw = euler_from_quaternion([qx, qy, qz, qw])[2]
+#
+# Substitueix els 0.0 de sota per les coordenades reals. Si un tipus
+# d'objecte no té contenidor assignat, elimina la seva entrada
+# (state_machine_node avisarà i ignorarà aquelles deteccions).
+
+containers:
+  plastic:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+  paper:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+  glass:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+  residual:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0

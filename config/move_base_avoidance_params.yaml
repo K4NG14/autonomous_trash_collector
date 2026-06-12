@@ -1,0 +1,26 @@
+# Paràmetres per millorar l'esquiva d'obstacles del DWA i els costmaps.
+# Es carrega amb `rosparam file=... ns="move_base"` DESPRÉS de l'include de
+# move_base.launch perquè aquests valors sobreescriguin els per defecte del waffle.
+
+DWAPlannerROS:
+  path_distance_bias: 24.0   # equilibri entre seguir la ruta global i poder desviar-se (per defecte 32.0)
+  goal_distance_bias: 20.0
+  occdist_scale: 0.2         # pes dels obstacles en el scoring de trajectòries (per defecte 0.02)
+  oscillation_reset_dist: 0.1
+
+global_costmap:
+  inflation_radius: 0.5
+  inflation_layer:
+    inflation_radius: 0.5
+
+local_costmap:
+  width: 4
+  height: 4
+  inflation_radius: 0.5
+  inflation_layer:
+    inflation_radius: 0.5
+
+# move_base: més marge abans de considerar el robot encallat i recovery més efectiu
+oscillation_timeout: 15.0
+oscillation_distance: 0.3
+conservative_reset_dist: 1.0

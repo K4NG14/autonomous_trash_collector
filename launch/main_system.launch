@@ -2,6 +2,7 @@
   <arg name="sim" default="false" doc="true per a simulació en Gazebo, false per al robot real"/>
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
   <arg name="open_rviz" default="true"/>
+  <arg name="manipulator" default="true" doc="false per provar només navegació sense l'stack MoveIt/OpenManipulator"/>
 
   <param name="/use_sim_time" value="$(arg sim)"/>
 
@@ -26,14 +27,9 @@
   </include>
   
   <include if="$(arg sim)" file="$(find turtlebot3_manipulation_gazebo)/launch/turtlebot3_manipulation_gazebo.launch"/>
-  <rosparam param="/move_base/global_costmap/inflation_radius">0.25</rosparam>
-  <rosparam param="/move_base/local_costmap/inflation_radius">0.25</rosparam>
-  <rosparam param="/move_base/global_costmap/inflation_layer/inflation_radius">0.25</rosparam>
-  <rosparam param="/move_base/local_costmap/inflation_layer/inflation_radius">0.25</rosparam>
 
-  <rosparam param="/move_base/DWAPlannerROS/path_distance_bias">10.0</rosparam>
-  <rosparam param="/move_base/DWAPlannerROS/occdist_scale">0.5</rosparam>
-  <rosparam param="/move_base/DWAPlannerROS/max_vel_y">0.0</rosparam>
+  <!-- Paràmetres ajustats per a una esquiva d'obstacles eficient -->
+  <rosparam file="$(find autonomous_trash_collector)/config/move_base_avoidance_params.yaml" command="load" ns="move_base"/>
 
 
   <group if="$(arg sim)">
@@ -42,12 +38,15 @@
   </group>
 
   <group unless="$(arg sim)">
-    <rosparam param="/move_base/global_costmap/observation_sources">point_cloud_sensor</rosparam>
+    <!-- "scan" (LIDAR) és la font d'obstacles real disponible al robot.
+         "point_cloud_sensor" es deixa preparat per quan hi hagi una càmera de profunditat a /camera/depth/points -->
+    <rosparam param="/move_base/global_costmap/observation_sources">scan point_cloud_sensor</rosparam>
     <rosparam param="/move_base/global_costmap/point_cloud_sensor/data_type">PointCloud2</rosparam>
-    <rosparam param="/move_base/global_costmap/point_cloud_sensor/topic">/camera/depth/points</rosparam> <rosparam param="/move_base/global_costmap/point_cloud_sensor/marking">true</rosparam>
+    <rosparam param="/move_base/global_costmap/point_cloud_sensor/topic">/camera/depth/points</rosparam>
+    <rosparam param="/move_base/global_costmap/point_cloud_sensor/marking">true</rosparam>
     <rosparam param="/move_base/global_costmap/point_cloud_sensor/clearing">true</rosparam>
 
-    <rosparam param="/move_base/local_costmap/observation_sources">point_cloud_sensor</rosparam>
+    <rosparam param="/move_base/local_costmap/observation_sources">scan point_cloud_sensor</rosparam>
     <rosparam param="/move_base/local_costmap/point_cloud_sensor/data_type">PointCloud2</rosparam>
     <rosparam param="/move_base/local_costmap/point_cloud_sensor/topic">/camera/depth/points</rosparam>
     <rosparam param="/move_base/local_costmap/point_cloud_sensor/marking">true</rosparam>
@@ -55,12 +54,15 @@
   </group>
 
 
-  <include file="$(find turtlebot3_manipulation_moveit_config)/launch/move_group.launch"/>
+  <include if="$(arg manipulator)" file="$(find turtlebot3_manipulation_moveit_config)/launch/move_group.launch"/>
 
   <node if="$(arg open_rviz)" pkg="rviz" type="rviz" name="rviz" required="true" args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
 
-  <node pkg="autonomous_trash_collector" type="state_machine_node.py" name="state_machine_node" output="screen" />
+  <node pkg="autonomous_trash_collector" type="state_machine_node.py" name="state_machine_node" output="screen" >
+    <rosparam file="$(find autonomous_trash_collector)/config/containers.yaml" command="load"/>
+  </node>
   <node pkg="autonomous_trash_collector" type="patrol_planner.py" name="patrol_planner" output="screen" />
   <node pkg="autonomous_trash_collector" type="object_map_mgr.py" name="object_map_mgr" output="screen" />
+  <node if="$(arg manipulator)" pkg="autonomous_trash_collector" type="arm_controller.py" name="arm_controller" output="screen" />
 
 </launch>
